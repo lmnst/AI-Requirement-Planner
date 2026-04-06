@@ -11,6 +11,12 @@ summary
 tasks
 implementation_plan
 test_checklist
+summary must be a string
+each item in tasks must be a string
+each item in implementation_plan must be a string
+each item in test_checklist must be a string
+do not return nested objects
+do not return task/details, phase/steps, or category/items
 """
 
 Text_Test_Cases = """
@@ -20,6 +26,12 @@ Return ONLY valid JSON with exactly these keys:
 feature_summary
 test_scenarios
 edge_cases
+
+feature_summary must be a string
+each item in test_scenarios must be a string
+each item in edge_cases must be a string
+do not return objects inside arrays
+do not return additional keys
 """
 
 app = FastAPI()
@@ -28,24 +40,30 @@ client = OpenAI()
 class RequirementRequest(BaseModel):
     requirement: str
 
-class ImplementationStep(BaseModel):
-    step: int
-    tittle: str
+# class ImplementationStep(BaseModel):
+#     step: int
+#     title: str
 
 class responseModel(BaseModel):
     summary: str
     tasks: list[str]
 
 class PlanResponse(responseModel):
-    implementation_plan: list[ImplementationStep]
+    # implementation_plan: list[ImplementationStep]
+    implementation_plan: list[str]
     test_checklist: list[str]
 
-class TestCases(responseModel):
+class TestCases(BaseModel):
+    #edge_cases: list[str]
+    feature_summary: str
+    test_scenarios: list[str]
     edge_cases: list[str]
+
 
 
 @app.post("/generate-plan", response_model=PlanResponse)
 async def generate_plan(request: RequirementRequest):
+    #The if not statement in Python is used to execute a block of code when a condition evaluates to False.
     if not request.requirement.strip():
         raise HTTPException(status_code=400, detail="Requirement cannot be empty.")
     
@@ -76,7 +94,7 @@ async def generate_plan(request: RequirementRequest):
         return result
     except ValidationError as e:
         print(response.output_text)
-        raise HTTPException(status_code=422, detail=f"Wrong DataFormat From AI: {e}")
+        raise HTTPException(status_code=500, detail=f"Wrong DataFormat From AI: {e}")
    
 
 @app.post("/generate-test-cases", response_model=TestCases)
