@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from typing import TypeVar
+
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, ValidationError
 from openai import OpenAI
 import json
@@ -37,6 +39,7 @@ do not return additional keys
 app = FastAPI()
 client = OpenAI()
 
+# def requirementModel
 class RequirementRequest(BaseModel):
     requirement: str
 
@@ -48,11 +51,13 @@ class responseModel(BaseModel):
     summary: str
     tasks: list[str]
 
+# def PlanResponseMode
 class PlanResponse(responseModel):
     # implementation_plan: list[ImplementationStep]
     implementation_plan: list[str]
     test_checklist: list[str]
 
+# def TestCasesMode
 class TestCases(BaseModel):
     #edge_cases: list[str]
     feature_summary: str
@@ -61,85 +66,64 @@ class TestCases(BaseModel):
 
 
 
-@app.post("/generate-plan", response_model=PlanResponse)
-async def generate_plan(request: RequirementRequest):
-    #The if not statement in Python is used to execute a block of code when a condition evaluates to False.
+def validate_requirement(request: RequirementRequest):
     if not request.requirement.strip():
         raise HTTPException(status_code=400, detail="Requirement cannot be empty.")
-    
+
+T = TypeVar('T', PlanResponse, TestCases)
+
+def call_openai_with_prompt(input_content: str, request: RequirementRequest):
     response = client.responses.create(
         model="gpt-5.4-nano",
         reasoning={"effort": "low"},
         input=[
             {
                 "role": "developer",
-                "content": Text_generate_plan
+                "content": input_content
             },
             {
                 "role": "user",
                 "content": request.requirement
             }
         ],
-        #text_format=PlanResponse #这样写是对的吗？？
-        #不对，这个有错
     )
+    return response
 
+def parse_llm_json(response: Response, output: T):
     try:
         result = json.loads(response.output_text)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Model did not return valid JSON.")
-
     try:
-        result = PlanResponse(**result)
+        result = output(**result)
         return result
     except ValidationError as e:
         print(response.output_text)
         raise HTTPException(status_code=500, detail=f"Wrong DataFormat From AI: {e}")
-   
+    
 
+# endpoint 1
+@app.post("/generate-plan", response_model=PlanResponse)
+async def generate_plan(request: RequirementRequest):
+
+    # empty request validate 
+    validate_requirement(request)
+
+    # call LLM then return Response
+    response = call_openai_with_prompt(Text_generate_plan, request)
+    
+    result = parse_llm_json(response, PlanResponse)
+    return result
+
+# endpoint2
 @app.post("/generate-test-cases", response_model=TestCases)
 def generate_test_cases(request: RequirementRequest):
-    if not request.requirement.strip():
-        raise HTTPException(status_code=400, detail="Requirement cannot be empty.")
     
-    response = client.responses.create(
-        model="gpt-5.4-nano",
-        reasoning={"effort": "low"},
-        input=[
-            {
-                "role": "developer",
-                "content": Text_Test_Cases
-            },
-            {
-                "role": "user",
-                "content": request.requirement
-            }
-        ],
-        #text_format=TestCases 不对，这个有错
-    )
+    # empty request validate 
+    validate_requirement(request)
+    
+    # call LLM then return Response
+    response = call_openai_with_prompt(Text_Test_Cases, request)
 
-    try:
-        result = json.loads(response.output_text)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Model did not return valid JSON.")
-
-    try:
-        result = TestCases(**result)
-        return result
-    except ValidationError as e:
-        print(response.output_text)
-        raise HTTPException(status_code=422, detail=f"Wrong DataFormat From AI: {e}")
-
-
-# from fastapi import FastAPI
-
-# app = FastAPI()
-
-# @app.get("/")
-# def read_root():
-#     return {"message": "Hello! That's my FIRST FastAPI interface"}
-
-# @app.get("/hello/{name}")
-# def say_hello(name: str):
-#     return {"message": f"Hello, {name}! Welcome to the Backend world!"}
-
+    result = parse_llm_json(response, TestCases)
+    return result
