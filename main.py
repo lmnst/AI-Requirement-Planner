@@ -1,7 +1,7 @@
-from typing import TypeVar
+from typing import Type, TypeVar
 
-from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, ValidationError
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, ConfigDict, ValidationError
 from openai import OpenAI
 import json
 
@@ -48,6 +48,7 @@ class RequirementRequest(BaseModel):
 #     title: str
 
 class responseModel(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     summary: str
     tasks: list[str]
 
@@ -60,6 +61,7 @@ class PlanResponse(responseModel):
 # def TestCasesMode
 class TestCases(BaseModel):
     #edge_cases: list[str]
+    model_config = ConfigDict(extra='forbid')
     feature_summary: str
     test_scenarios: list[str]
     edge_cases: list[str]
@@ -70,7 +72,7 @@ def validate_requirement(request: RequirementRequest):
     if not request.requirement.strip():
         raise HTTPException(status_code=400, detail="Requirement cannot be empty.")
 
-T = TypeVar('T', PlanResponse, TestCases)
+T = TypeVar('T', bound=BaseModel)
 
 def call_openai_with_prompt(input_content: str, request: RequirementRequest):
     response = client.responses.create(
@@ -89,7 +91,7 @@ def call_openai_with_prompt(input_content: str, request: RequirementRequest):
     )
     return response
 
-def parse_llm_json(response: Response, output: T):
+def parse_llm_json(response, output: Type[T]) -> T:
     try:
         result = json.loads(response.output_text)
     except json.JSONDecodeError:
@@ -127,3 +129,16 @@ def generate_test_cases(request: RequirementRequest):
 
     result = parse_llm_json(response, TestCases)
     return result
+
+# def test_missing_field():
+#     # 1. 模拟一个缺了 summary 的响应
+#     mock_response = Response(output_text='{"tasks": ["学习Python"]}') 
+    
+#     # 2. 尝试运行你的函数，看它是否如期“爆炸”
+#     # 注意：这里我们预期它会抛出 HTTPException
+#     try:
+#         parse_llm_json(mock_response, PlanResponse)
+#         assert False, "函数没有报错，这不科学！"
+#     except HTTPException as e:
+#         assert e.status_code == 500  # 检查是不是你代码里写的那个 500
+#         assert "Wrong DataFormat" in e.detail # 检查报错信息
