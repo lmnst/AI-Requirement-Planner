@@ -1,3 +1,5 @@
+from unittest import case
+
 from fastapi.testclient import TestClient
 import sys
 import os
@@ -5,6 +7,9 @@ import main
 from main import app
 
 client = TestClient(app)
+
+
+
 
 def test_generate_plan_empty_requirement_returns_400():
     response = client.post("/generate-plan", json={"requirement": ""})

@@ -1,7 +1,7 @@
-from typing import TypeVar
+from typing import Type, TypeVar
 
-from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, ValidationError
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, ConfigDict, ValidationError
 from openai import OpenAI
 import json
 
@@ -48,6 +48,7 @@ class RequirementRequest(BaseModel):
 #     title: str
 
 class responseModel(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     summary: str
     tasks: list[str]
 
@@ -60,6 +61,7 @@ class PlanResponse(responseModel):
 # def TestCasesMode
 class TestCases(BaseModel):
     #edge_cases: list[str]
+    model_config = ConfigDict(extra='forbid')
     feature_summary: str
     test_scenarios: list[str]
     edge_cases: list[str]
@@ -70,7 +72,7 @@ def validate_requirement(request: RequirementRequest):
     if not request.requirement.strip():
         raise HTTPException(status_code=400, detail="Requirement cannot be empty.")
 
-T = TypeVar('T', PlanResponse, TestCases)
+T = TypeVar('T', bound=BaseModel)
 
 def call_openai_with_prompt(input_content: str, request: RequirementRequest):
     response = client.responses.create(
@@ -89,7 +91,7 @@ def call_openai_with_prompt(input_content: str, request: RequirementRequest):
     )
     return response
 
-def parse_llm_json(response: Response, output: T):
+def parse_llm_json(response, output: Type[T]) -> T:
     try:
         result = json.loads(response.output_text)
     except json.JSONDecodeError:
