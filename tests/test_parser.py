@@ -1,7 +1,8 @@
 import json
 import pytest
 from fastapi import HTTPException
-from main import parse_llm_json, PlanResponse, TestCases
+from app.schemas import PlanResponse, TestCases
+from app.utils import parse_llm_json
 
 
 VALID_PLAN_RESPONSE = {
