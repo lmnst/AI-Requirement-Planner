@@ -1,10 +1,11 @@
 from unittest import case
 
 from fastapi.testclient import TestClient
-import sys
-import os
-import main
-from main import app
+# import sys
+# import os
+import app.main as main
+from app.main import app
+import app.services.llm_service as services
 
 client = TestClient(app)
 
@@ -27,7 +28,7 @@ def test_generate_plan_happy_requirement_returns_200(monkeypatch):
         return FakeResponse()
     
 
-    monkeypatch.setattr(main.client.responses, "create", fake_create)
+    monkeypatch.setattr(services.client.responses, "create", fake_create)
     response = client.post("/generate-plan", json={"requirement": "做个todo"})
 
     assert response.status_code == 200
@@ -44,7 +45,7 @@ def test_generate_plan_invalid_json_returns_500(monkeypatch):
     def fake_create(*args, **kwargs):
         return FakeResponse()
     
-    monkeypatch.setattr(main.client.responses, "create", fake_create)
+    monkeypatch.setattr(services.client.responses, "create", fake_create)
     response = client.post("/generate-plan", json={"requirement": "做个todo"})
 
     assert response.status_code == 500
@@ -67,7 +68,7 @@ def test_generate_test_cases_happy_requirement_returns_200(monkeypatch):
     def fake_response_create(*args, **kwargs):
         return fake_response()
     
-    monkeypatch.setattr(main.client.responses, "create", fake_response_create)
+    monkeypatch.setattr(services.client.responses, "create", fake_response_create)
 
     response = client.post("/generate-test-cases", json={"requirement": "str"})
 
@@ -84,7 +85,7 @@ def test_generate_test_cases_invalid_json_returns_500(monkeypatch):
     def fake_response_create(*args, **kwargs):
         return fake_response()
     
-    monkeypatch.setattr(main.client.responses, "create", fake_response_create)
+    monkeypatch.setattr(services.client.responses, "create", fake_response_create)
 
     response = client.post("/generate-test-cases", json={"requirement": "str"})
 
