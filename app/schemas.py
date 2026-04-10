@@ -27,3 +27,4 @@ class TestCases(BaseModel):
     feature_summary: str
     test_scenarios: list[str]
     edge_cases: list[str]
+    

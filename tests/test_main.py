@@ -92,3 +92,4 @@ def test_generate_test_cases_invalid_json_returns_500(monkeypatch):
     assert response.status_code == 500
     data = response.json()
     assert data["detail"] == "Model did not return valid JSON."
+

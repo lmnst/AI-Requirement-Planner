@@ -70,3 +70,4 @@ def test_parse_llm_json_missing_required_field(bad_payload, response_model):
 
     assert exc_info.value.status_code == 500
     assert "Wrong DataFormat From AI" in exc_info.value.detail
+    
