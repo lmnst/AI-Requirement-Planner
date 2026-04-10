@@ -25,4 +25,3 @@ def parse_llm_json(response, output: Type[T]) -> T:
     except ValidationError as e:
         print(response.output_text)
         raise HTTPException(status_code=500, detail=f"Wrong DataFormat From AI: {e}")
- 
