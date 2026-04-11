@@ -28,14 +28,7 @@ class TestCases(BaseModel):
     test_scenarios: list[str]
     edge_cases: list[str]
     
-
-class WorkflowMeta(BaseModel):
-    steps_completed: list[str]
-    model: str
-    success: bool
-
 class WorkflowResponse(BaseModel):
-    requirement: str
+    model_config = ConfigDict(extra="forbid")
     plan: PlanResponse
     test_cases: TestCases
-    meta: WorkflowMeta

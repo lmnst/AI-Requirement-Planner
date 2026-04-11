@@ -27,24 +27,3 @@ async def generate_test_cases(request: RequirementRequest):
     result = parse_llm_json(response, TestCases)
     return result
 
-async def generate_workflow(request: RequirementRequest):
-    result1 = await generate_plan(request)
-    
-    new_requirement = f"""
-Original requirement:
-{request.requirement}
-
-Generated plan:
-{result1.model_dump_json(indent=2)}
-
-Please generate test cases based on the original requirement and the generated plan above.
-"""
-    
-    request_new = RequirementRequest(requirement = new_requirement)
-    
-    result2 = await generate_test_cases(request_new)
-
-    return {
-        "plan": result1,
-        "test_cases": result2
-    }

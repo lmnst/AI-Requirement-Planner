@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.schemas import PlanResponse, RequirementRequest, TestCases
 
 import app.services.planner_service as planner_service
+from app.services.workflow_service import generate_workflow
 
 router = APIRouter()
 
@@ -20,5 +21,5 @@ async def generate_test_cases_route(request: RequirementRequest):
 
 @router.post("/workflow")
 async def workflow_route(request: RequirementRequest):
-    result = await planner_service.generate_workflow(request)
+    result = await generate_workflow(request)
     return result
