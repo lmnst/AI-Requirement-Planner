@@ -5,3 +5,7 @@ __pycache__/
 node_modules/
 .pytest_cache/
 .vscode
+cdk.out/
+infra/.venv/
+infra/*-outputs.json
+*.swp
