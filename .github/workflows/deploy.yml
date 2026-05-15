@@ -1,0 +1,105 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: eu-central-1
+      ECR_REPO_NAME: ai-requirement-planner
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify assumed identity
+        run: aws sts get-caller-identity
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          IMAGE="${REGISTRY}/${ECR_REPO_NAME}:${TAG}"
+          docker buildx build \
+            --platform linux/amd64 \
+            --provenance=false \
+            --tag "${IMAGE}" \
+            --push \
+            .
+          DIGEST=$(aws ecr describe-images \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-ids imageTag="${TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Pushed ${IMAGE} (digest ${DIGEST})"
+
+      - name: Set up Python for CDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node for CDK CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install CDK CLI and infra deps
+        working-directory: infra
+        run: |
+          npm install -g aws-cdk
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: CDK deploy ApplicationStack
+        working-directory: infra
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cdk deploy AiRequirementPlannerApplication \
+            --require-approval=never \
+            -c image_digest="${IMAGE_DIGEST}" \
+            -c skip_application=false \
+            --outputs-file ./cdk-outputs.json
+
+      - name: Print API URL
+        working-directory: infra
+        run: |
+          API_URL=$(jq -r '.AiRequirementPlannerApplication.ApiUrl' cdk-outputs.json)
+          echo "API_URL=${API_URL}"
+          echo "API_URL=${API_URL}" >> "$GITHUB_ENV"
+
+      - name: Online smoke test
+        env:
+          API_BASE_URL: ${{ env.API_URL }}
+        run: |
+          python -m pip install --upgrade requests pytest
+          pytest -q tests/test_deployed.py
